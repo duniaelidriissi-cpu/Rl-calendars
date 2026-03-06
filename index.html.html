@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RL Production Calendars</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --black:#1C1C1C; --white:#FFFFFF; --orange:#FF5710; --warm-grey:#F5F1ED;
+  --ult-grey:#E0DBD7; --orange2:#FF9E2C; --green:#42EC8B; --blue:#3131FF; --blue2:#002994;
+  --bg:var(--warm-grey); --surface:var(--white); --surface2:var(--ult-grey);
+  --border:#D5D0CB; --text:var(--black); --text-muted:#8A8580;
+  --mod-lt:#FFF0EB; --moi-lt:#FFF8EC; --staff-lt:#EEEEFF;
+  --working-color:var(--blue2); --vac-text:#007A3D;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;font-size:13px}
+.container{max-width:1440px;margin:0 auto;padding:0 28px 80px}
+
+/* HEADER */
+header{background:var(--black);padding:0 28px;position:sticky;top:0;z-index:60}
+.header-inner{max-width:1440px;margin:0 auto;height:58px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:white}
+.logo h1{font-size:14px;font-weight:700;color:white}
+.logo h1 span{color:var(--orange2)}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.year-controls{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 12px}
+.year-controls button{background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:16px;transition:color .15s;line-height:1}
+.year-controls button:hover{color:var(--orange2)}
+#year-display{font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:white;min-width:38px;text-align:center}
+#sync-status{font-family:'DM Mono',monospace;font-size:10px;color:#42EC8B;letter-spacing:.5px;white-space:nowrap}
+.export-btns{display:flex;gap:5px}
+.btn-export{display:flex;align-items:center;gap:4px;padding:6px 11px;border:1px solid rgba(255,255,255,.2);border-radius:7px;background:transparent;color:rgba(255,255,255,.6);cursor:pointer;font-size:10px;font-family:'DM Mono',monospace;letter-spacing:.5px;transition:all .15s;white-space:nowrap}
+.btn-export:hover{border-color:var(--orange2);color:var(--orange2)}
+.btn-export.pdf:hover{border-color:var(--orange);color:var(--orange)}
+.btn-export.sync-btn{border-color:rgba(66,236,139,.3);color:#42EC8B}
+.btn-export.sync-btn:hover{border-color:#42EC8B;color:#42EC8B}
+
+/* TABS */
+.tabs-bar{display:flex;align-items:center;padding:20px 0 0;margin-bottom:20px;border-bottom:2px solid var(--ult-grey)}
+.tab{padding:10px 18px;border:none;background:none;color:var(--text-muted);cursor:pointer;font-size:13px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--orange);border-bottom-color:var(--orange)}
+
+/* PLANT PILLS */
+.plant-pills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.plant-pill{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:6px;border:1.5px solid var(--ult-grey);cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;background:var(--surface);color:var(--text-muted)}
+.plant-pill:hover{border-color:var(--orange);color:var(--text)}
+.plant-pill .pdays{font-family:'DM Mono',monospace;font-size:10px;padding:1px 6px;border-radius:10px;background:var(--ult-grey);color:var(--text-muted)}
+.plant-pill.active{background:var(--black);color:white;border-color:var(--black)}
+.plant-pill.active .pdays{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}
+
+/* COLLECTIVE TOGGLE */
+.collective-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.collective-bar label{font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase}
+.coll-btns{display:flex;gap:3px;background:var(--ult-grey);border-radius:8px;padding:3px}
+.coll-btn{padding:5px 14px;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;background:transparent;color:var(--text-muted)}
+.coll-btn.active.mod{background:var(--orange);color:white}
+.coll-btn.active.moi{background:var(--orange2);color:white}
+.coll-btn.active.staff{background:var(--blue);color:white}
+
+/* VIEWS */
+.view{display:none}.view.active{display:block}
+
+/* DRAG BAR */
+.drag-bar{background:white;border:1.5px solid var(--ult-grey);border-left:4px solid var(--green);border-radius:8px;padding:14px 18px;margin-bottom:16px}
+.drag-bar-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.drag-bar-top p{font-size:12px;color:var(--text-muted);flex:1}
+.drag-bar-top strong{color:var(--text)}
+.drag-chips{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Drag chips by type */
+.drag-chip{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:7px;cursor:grab;font-size:12px;font-weight:600;transition:all .15s;user-select:none;border:1.5px dashed}
+.drag-chip:active{cursor:grabbing;opacity:.7;transform:scale(.96)}
+.drag-chip.type-working{background:#EEF0FF;border-color:var(--blue2);color:var(--blue2)}
+.drag-chip.type-working:hover{background:#DDE0FF}
+.drag-chip.type-holiday-custom{background:#DFFBEE;border-color:var(--vac-text);color:var(--vac-text)}
+.drag-chip.type-holiday-custom:hover{background:#C5F5DC}
+.drag-chip.type-official{background:var(--mod-lt);border-color:var(--orange);color:var(--orange)}
+.drag-chip.type-official:hover{background:#FFE0D6}
+.drag-chip.type-hours{background:#FFF8EC;border-color:var(--orange2);color:#92400E}
+.drag-chip.type-hours:hover{background:#FFEFD4}
+.drag-chip input{background:none;border:none;outline:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;width:100px;color:inherit}
+.drag-chip input::placeholder{font-weight:400;opacity:.6}
+.drag-chip .hours-input{width:36px;text-align:center;font-family:'DM Mono',monospace}
+
+/* CALENDAR */
+.calendar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:13px}
+.month-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:box-shadow .15s}
+.month-card:hover{box-shadow:0 3px 14px rgba(0,0,0,.07)}
+.month-header{padding:11px 14px 9px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--ult-grey)}
+.month-name{font-size:13px;font-weight:700}
+.month-stats{display:flex;gap:4px}
+.stat-badge{font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:10px;font-weight:600;border:1px solid}
+.stat-badge.working{border-color:var(--working-color);color:var(--working-color);background:#EEF0FF}
+.stat-badge.holiday{border-color:var(--orange);color:var(--orange);background:var(--mod-lt)}
+.stat-badge.vacation{border-color:var(--vac-text);color:var(--vac-text);background:#DFFBEE}
+.stat-badge.hours{border-color:var(--orange2);color:#92400E;background:#FFF8EC}
+
+.cal-grid{padding:7px 10px 11px;display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.cal-day-label{text-align:center;font-family:'DM Mono',monospace;font-size:8px;color:var(--text-muted);padding:3px 0}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;border-radius:4px;position:relative;transition:all .12s;font-family:'DM Mono',monospace;cursor:pointer;user-select:none;line-height:1}
+.cal-day.empty{pointer-events:none}
+.cal-day.weekend{color:var(--ult-grey);cursor:default}
+.cal-day:hover:not(.empty):not(.weekend){background:var(--warm-grey)}
+.cal-day.holiday{background:var(--mod-lt);color:var(--orange);font-weight:700}
+.cal-day.vacation{background:#DFFBEE;color:var(--vac-text);font-weight:700}
+.cal-day.custom-hours{background:#FFF8EC;color:#92400E;font-weight:700}
+.cal-day.today{outline:2px solid var(--orange);outline-offset:-1px;font-weight:700}
+.cal-day.drag-over:not(.weekend):not(.empty){background:#ADFACF!important;outline:2px dashed var(--vac-text);outline-offset:-2px;transform:scale(1.08)}
+.cal-day .day-hours{font-size:7px;opacity:.7;margin-top:1px;font-family:'DM Mono',monospace}
+
+/* DAY MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.hidden{display:none}
+.modal{background:white;border-radius:14px;width:100%;max-width:380px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-header{background:var(--black);padding:18px 20px;display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{color:white;font-size:15px;font-weight:700}
+.modal-header .modal-date{color:rgba(255,255,255,.5);font-family:'DM Mono',monospace;font-size:11px;margin-top:2px}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:20px;line-height:1;padding:0 2px;transition:color .15s}
+.modal-close:hover{color:white}
+.modal-body{padding:20px}
+.modal-section{margin-bottom:18px}
+.modal-section label{display:block;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px}
+.day-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.day-type-btn{padding:10px 12px;border-radius:8px;border:1.5px solid var(--ult-grey);background:var(--warm-grey);cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-muted)}
+.day-type-btn:hover{border-color:var(--text-muted)}
+.day-type-btn .dticon{font-size:18px}
+.day-type-btn.selected-working{border-color:var(--blue2);background:#EEF0FF;color:var(--blue2)}
+.day-type-btn.selected-holiday-custom{border-color:var(--vac-text);background:#DFFBEE;color:var(--vac-text)}
+.day-type-btn.selected-official{border-color:var(--orange);background:var(--mod-lt);color:var(--orange)}
+.day-type-btn.selected-weekend{border-color:var(--text-muted);background:var(--ult-grey);color:var(--text-muted)}
+.hours-row{display:flex;align-items:center;gap:10px;background:var(--warm-grey);border-radius:8px;padding:10px 14px;border:1.5px solid var(--ult-grey)}
+.hours-row label{font-size:12px;font-weight:600;flex:1;color:var(--text);margin:0}
+.hours-row input{width:56px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;text-align:center;background:white;color:var(--blue2);outline:none}
+.hours-row input:focus{border-color:var(--blue2)}
+.hours-row span{font-size:11px;color:var(--text-muted)}
+.modal-name-row{display:flex;gap:8px}
+.modal-name-row input{flex:1;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-family:'Inter',sans-serif;font-size:13px;outline:none;background:var(--warm-grey)}
+.modal-name-row input:focus{border-color:var(--orange)}
+.modal-footer{padding:14px 20px;background:var(--warm-grey);display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--ult-grey)}
+.btn{padding:9px 18px;border:none;border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:hover{background:#E54500}
+.btn-ghost{background:white;color:var(--text-muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text)}
+.btn-danger{background:#FEE2E2;color:#DC2626;border:1px solid #FECACA}
+.btn-danger:hover{background:#FECACA}
+
+/* TABLE */
+.table-wrapper{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead{background:var(--black)}
+th{padding:11px 15px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.6);text-align:left;font-weight:600}
+th:not(:first-child){text-align:center}
+td{padding:10px 15px;border-bottom:1px solid var(--ult-grey);font-size:13px}
+td:not(:first-child){text-align:center}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--warm-grey)}
+.month-cell{font-weight:700}
+.num{font-family:'DM Mono',monospace;font-size:13px}
+.num.working{color:var(--working-color);font-weight:700}
+.num.hol{color:var(--orange)}
+.num.vac{color:var(--vac-text)}
+.num.hrs{color:#92400E}
+.num.muted{color:var(--text-muted)}
+.total-row td{background:var(--black);color:white;border-top:none}
+.total-row .month-cell{color:white;font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.total-row .num{color:white}
+.total-row .num.working{color:var(--orange2);font-size:15px}
+
+/* COMPARISON */
+.comparison-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px}
+.country-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;border-top:4px solid var(--black);transition:box-shadow .15s}
+.country-card:hover{box-shadow:0 3px 14px rgba(0,0,0,.08)}
+.country-card[data-country="RLCL"]{border-top-color:var(--orange)}
+.country-card[data-country="RLHQ"]{border-top-color:#FF8040}
+.country-card[data-country="RLMR"]{border-top-color:var(--orange2)}
+.country-card[data-country="RLVN"]{border-top-color:var(--vac-text)}
+.country-card[data-country="RLCH"]{border-top-color:var(--blue)}
+.country-card[data-country="RLMX"]{border-top-color:var(--blue2)}
+.country-card .cflag{font-size:24px;margin-bottom:4px}
+.country-card .ccode{font-family:'DM Mono',monospace;font-size:9px;font-weight:600;letter-spacing:2px;color:var(--text-muted);margin-bottom:1px}
+.country-card .cname{font-size:15px;font-weight:700;margin-bottom:3px}
+.coll-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.5px;margin-bottom:12px}
+.coll-badge.mod{background:var(--mod-lt);color:var(--orange)}
+.coll-badge.moi{background:var(--moi-lt);color:var(--orange2)}
+.coll-badge.staff{background:var(--staff-lt);color:var(--blue)}
+.country-card .big-num{font-family:'DM Mono',monospace;font-size:34px;font-weight:500;line-height:1;color:var(--working-color)}
+.country-card .big-label{font-size:10px;color:var(--text-muted);margin-top:2px}
+.country-card hr{border:none;border-top:1px solid var(--ult-grey);margin:12px 0}
+.country-card .sub-stat{display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px;color:var(--text-muted)}
+.country-card .sub-stat span:last-child{font-family:'DM Mono',monospace;color:var(--text);font-weight:600}
+
+/* MANAGE */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px}
+.panel h3{font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel h3 .badge{font-size:9px;color:var(--text-muted);font-family:'DM Mono',monospace;font-weight:500;letter-spacing:1.5px;background:var(--warm-grey);padding:3px 8px;border-radius:20px}
+.form-row{display:grid;grid-template-columns:1fr 140px 1fr 130px 110px auto;gap:9px;align-items:end}
+.fg label{display:block;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-bottom:5px}
+.fg select,.fg input[type="date"],.fg input[type="text"],.fg input[type="number"]{width:100%;background:var(--warm-grey);border:1px solid var(--ult-grey);border-radius:7px;padding:8px 10px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;transition:border-color .15s}
+.fg select:focus,.fg input:focus{border-color:var(--orange)}
+.filter-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:11px}
+.fpill{padding:4px 10px;border-radius:20px;border:1px solid var(--ult-grey);background:none;color:var(--text-muted);cursor:pointer;font-size:11px;font-weight:600;transition:all .15s}
+.fpill.active{background:var(--black);color:white;border-color:var(--black)}
+.hlist{display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto}
+.hitem{display:flex;align-items:center;gap:8px;padding:8px 11px;background:var(--warm-grey);border-radius:7px;border-left:3px solid var(--ult-grey);font-size:12px;transition:background .12s}
+.hitem:hover{background:var(--ult-grey)}
+.hitem[data-country="RLCL"]{border-color:var(--orange)}
+.hitem[data-country="RLHQ"]{border-color:#FF8040}
+.hitem[data-country="RLMR"]{border-color:var(--orange2)}
+.hitem[data-country="RLVN"]{border-color:var(--vac-text)}
+.hitem[data-country="RLCH"]{border-color:var(--blue)}
+.hitem[data-country="RLMX"]{border-color:var(--blue2)}
+.hitem .hd{font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted);min-width:82px}
+.hitem .hcode{font-family:'DM Mono',monospace;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--ult-grey);color:var(--text-muted)}
+.hitem .hn{flex:1;color:var(--text)}
+.hitem .hcoll{font-size:9px;padding:2px 6px;border-radius:10px;font-weight:700}
+.hitem .hcoll.mod-badge{background:var(--mod-lt);color:var(--orange)}
+.hitem .hcoll.moi-badge{background:var(--moi-lt);color:var(--orange2)}
+.hitem .hcoll.staff-badge{background:var(--staff-lt);color:var(--blue)}
+.hitem .hcoll.all-badge{background:var(--ult-grey);color:var(--text-muted)}
+.hitem .ht{font-size:9px;padding:2px 6px;border-radius:10px;font-weight:700;background:var(--mod-lt);color:var(--orange)}
+.hitem .ht.vac{background:#DFFBEE;color:var(--vac-text)}
+.hitem .ht.hrs{background:#FFF8EC;color:#92400E}
+.hitem .xbtn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px;padding:0 2px;transition:color .15s;margin-left:auto}
+.hitem .xbtn:hover{color:var(--orange)}
+
+/* TOOLTIP */
+.tooltip{position:fixed;background:var(--black);color:white;border-radius:7px;padding:7px 11px;font-size:11px;pointer-events:none;z-index:300;display:none;max-width:200px;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.tooltip .ttype{font-size:9px;opacity:.55;font-family:'DM Mono',monospace;margin-top:2px}
+.tooltip .tcoll{font-size:9px;color:var(--orange2);font-family:'DM Mono',monospace}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--black);color:white;border-radius:8px;padding:10px 18px;font-size:12px;font-weight:500;z-index:500;transition:transform .25s ease;white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--warm-grey)}
+::-webkit-scrollbar-thumb{background:var(--ult-grey);border-radius:3px}
+
+@media(max-width:1000px){.form-row{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:700px){.form-row{grid-template-columns:1fr}.calendar-grid{grid-template-columns:1fr}.comparison-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div id="tooltip" class="tooltip"></div>
+<div id="toast" class="toast"></div>
+
+<!-- DAY EDIT MODAL -->
+<div class="modal-overlay hidden" id="day-modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-title">Edit Day</h3>
+        <div class="modal-date" id="modal-date-label"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">
+        <label>Day Type</label>
+        <div class="day-type-grid">
+          <button class="day-type-btn" id="btn-type-working" onclick="selectDayType('working')">
+            <span class="dticon">💼</span>Working Day
+          </button>
+          <button class="day-type-btn" id="btn-type-holiday-custom" onclick="selectDayType('holiday-custom')">
+            <span class="dticon">✈️</span>Holiday
+          </button>
+          <button class="day-type-btn" id="btn-type-official" onclick="selectDayType('official')">
+            <span class="dticon">🎉</span>Official Day Off
+          </button>
+          <button class="day-type-btn" id="btn-type-weekend" onclick="selectDayType('weekend')">
+            <span class="dticon">😴</span>Weekend / Off
+          </button>
+        </div>
+      </div>
+      <div class="modal-section">
+        <label>Description <span style="opacity:.5;font-size:9px;letter-spacing:0;text-transform:none">(optional for working days &amp; official days off)</span></label>
+        <div class="modal-name-row">
+          <input type="text" id="modal-name" placeholder="e.g. Summer closure, Bridge day...">
+        </div>
+      </div>
+      <div class="modal-section">
+        <label>Hours worked this day</label>
+        <div class="hours-row">
+          <label>Hours</label>
+          <input type="number" id="modal-hours" min="0" max="24" step="0.5" value="8">
+          <span>hrs <span style="opacity:.5">(default: 8)</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="modal-clear-btn" onclick="clearDay()">Clear</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDay()">Save</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark">RL</div>
+      <h1>Production <span>Calendars</span></h1>
+    </div>
+    <div class="header-right">
+      <div class="year-controls">
+        <button onclick="changeYear(-1)">‹</button>
+        <div id="year-display">2025</div>
+        <button onclick="changeYear(1)">›</button>
+      </div>
+      <span id="sync-status">⏳ Loading...</span>
+      <div class="export-btns">
+        <button class="btn-export sync-btn" onclick="manualRefresh()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.84"/></svg>
+          Sync
+        </button>
+        <button class="btn-export pdf" onclick="exportPDF()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          PDF
+        </button>
+        <button class="btn-export" onclick="exportExcel()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+          Excel
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="tabs-bar">
+    <button class="tab active" onclick="switchTab('calendar',this)">📅 Calendar</button>
+    <button class="tab" onclick="switchTab('table',this)">📊 Summary</button>
+    <button class="tab" onclick="switchTab('comparison',this)">🌍 Comparison</button>
+    <button class="tab" onclick="switchTab('edit',this)">✏️ Manage</button>
+  </div>
+
+  <div class="plant-pills" id="plant-pills"></div>
+
+  <div class="collective-bar">
+    <label>Collective</label>
+    <div class="coll-btns">
+      <button class="coll-btn active mod" onclick="setColl('MOD',this)">MOD</button>
+      <button class="coll-btn moi" onclick="setColl('MOI',this)">MOI</button>
+      <button class="coll-btn staff" onclick="setColl('Staff',this)">Staff</button>
+    </div>
+  </div>
+
+  <!-- CALENDAR VIEW -->
+  <div id="view-calendar" class="view active">
+    <div class="drag-bar">
+      <div class="drag-bar-top">
+        <span style="font-size:18px">🖱️</span>
+        <p><strong>Drag a chip onto any day</strong> to set its type — or <strong>click any day</strong> to open the full editor with hours.</p>
+      </div>
+      <div class="drag-chips">
+        <div class="drag-chip type-working" draggable="true"
+          ondragstart="onChipDragStart(event,'working')" ondragend="onChipDragEnd()">
+          💼 Working Day
+        </div>
+        <div class="drag-chip type-holiday-custom" draggable="true"
+          ondragstart="onChipDragStart(event,'holiday-custom')" ondragend="onChipDragEnd()">
+          ✈️ <input type="text" id="hol-custom-label" placeholder="Holiday name..." maxlength="40" ondragstart="event.stopPropagation()">
+        </div>
+        <div class="drag-chip type-official" draggable="true"
+          ondragstart="onChipDragStart(event,'official')" ondragend="onChipDragEnd()">
+          🎉 Official Day Off
+        </div>
+        <div class="drag-chip type-hours" draggable="true"
+          ondragstart="onChipDragStart(event,'hours')" ondragend="onChipDragEnd()">
+          ⏱️ <input type="number" class="hours-input" id="drag-hours" value="4" min="0.5" max="24" step="0.5" ondragstart="event.stopPropagation()"> hrs
+        </div>
+      </div>
+    </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+  </div>
+
+  <!-- TABLE VIEW -->
+  <div id="view-table" class="view">
+    <div class="table-wrapper">
+      <table>
+        <thead><tr>
+          <th>Month</th><th>Total Days</th><th>Working</th>
+          <th>Holidays</th><th>Vacation</th><th>Total Hours</th><th>Weekends</th>
+        </tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- COMPARISON VIEW -->
+  <div id="view-comparison" class="view">
+    <div class="comparison-grid" id="comparison-grid"></div>
+  </div>
+
+  <!-- MANAGE VIEW -->
+  <div id="view-edit" class="view">
+    <div class="panel">
+      <h3>Add Day Off <span class="badge">MANUAL ENTRY</span></h3>
+      <div class="form-row">
+        <div class="fg">
+          <label>Plant</label>
+          <select id="edit-plant">
+            <option value="RLCL">🇪🇸 RLCL</option>
+            <option value="RLHQ">🇪🇸 RLHQ</option>
+            <option value="RLMR">🇲🇦 RLMR</option>
+            <option value="RLVN">🇻🇳 RLVN</option>
+            <option value="RLCH">🇨🇳 RLCH</option>
+            <option value="RLMX">🇲🇽 RLMX</option>
+          </select>
+        </div>
+        <div class="fg"><label>Date</label><input type="date" id="edit-date"></div>
+        <div class="fg"><label>Description</label><input type="text" id="edit-name" placeholder="e.g. Bank Holiday"></div>
+        <div class="fg">
+          <label>Type</label>
+          <select id="edit-type">
+            <option value="national">National Holiday</option>
+            <option value="custom">Vacation</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Collective</label>
+          <select id="edit-coll">
+            <option value="ALL">All</option>
+            <option value="MOD">MOD</option>
+            <option value="MOI">MOI</option>
+            <option value="Staff">Staff</option>
+          </select>
+        </div>
+        <div class="fg" style="display:flex;align-items:flex-end">
+          <button class="btn btn-primary" onclick="addHoliday()" style="width:100%;padding:8px 0">+ Add</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>All Days Off <span class="badge">YEAR <span id="filter-year"></span></span></h3>
+      <div class="filter-pills">
+        <button class="fpill active" onclick="setMFilter('all',this)">All</button>
+        <button class="fpill" onclick="setMFilter('RLCL',this)">🇪🇸 RLCL</button>
+        <button class="fpill" onclick="setMFilter('RLHQ',this)">🇪🇸 RLHQ</button>
+        <button class="fpill" onclick="setMFilter('RLMR',this)">🇲🇦 RLMR</button>
+        <button class="fpill" onclick="setMFilter('RLVN',this)">🇻🇳 RLVN</button>
+        <button class="fpill" onclick="setMFilter('RLCH',this)">🇨🇳 RLCH</button>
+        <button class="fpill" onclick="setMFilter('RLMX',this)">🇲🇽 RLMX</button>
+        <button class="fpill" onclick="setMFilter('custom',this)">✈️ Vacation only</button>
+      </div>
+      <div class="hlist" id="holidays-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── PLANTS & CONSTANTS ────────────────────────────────
+const PLANTS=[
+  {code:'RLCL',name:'Spain CL',country:'ES',flag:'🇪🇸'},
+  {code:'RLHQ',name:'Spain HQ',country:'ES',flag:'🇪🇸'},
+  {code:'RLMR',name:'Morocco',country:'MA',flag:'🇲🇦'},
+  {code:'RLVN',name:'Vietnam',country:'VN',flag:'🇻🇳'},
+  {code:'RLCH',name:'China',country:'CN',flag:'🇨🇳'},
+  {code:'RLMX',name:'Mexico',country:'MX',flag:'🇲🇽'}
+];
+const COLLECTIVES=['MOD','MOI','Staff'];
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DEFAULT_HOURS=8;
+
+// Holidays are stored per-year so the app works across years.
+// DEFAULT_HOLIDAYS contains 2026 official public holidays for each plant.
+const DEFAULT_HOLIDAYS={
+  // ── SPAIN (RLCL & RLHQ) ── National holidays 2026 (Art.74 LFT + BOE)
+  // National: 1 Jan, 6 Jan, 3 Apr (Good Friday), 1 May, 15 Aug, 12 Oct, 1 Nov, 6 Dec, 8 Dec, 25 Dec
+  RLCL:[
+    {date:'2026-01-01',name:'New Year Day',type:'national',coll:'ALL'},
+    {date:'2026-01-06',name:'Epiphany',type:'national',coll:'ALL'},
+    {date:'2026-04-02',name:'Holy Thursday',type:'national',coll:'ALL'},
+    {date:'2026-04-03',name:'Good Friday',type:'national',coll:'ALL'},
+    {date:'2026-05-01',name:'Labour Day',type:'national',coll:'ALL'},
+    {date:'2026-08-15',name:'Assumption of Mary',type:'national',coll:'ALL'},
+    {date:'2026-10-12',name:'National Day of Spain',type:'national',coll:'ALL'},
+    {date:'2026-11-01',name:'All Saints Day',type:'national',coll:'ALL'},
+    {date:'2026-12-07',name:'Constitution Day (bridge)',type:'national',coll:'ALL'},
+    {date:'2026-12-08',name:'Immaculate Conception',type:'national',coll:'ALL'},
+    {date:'2026-12-25',name:'Christmas Day',type:'national',coll:'ALL'}
+  ],
+  RLHQ:[
+    {date:'2026-01-01',name:'New Year Day',type:'national',coll:'ALL'},
+    {date:'2026-01-06',name:'Epiphany',type:'national',coll:'ALL'},
+    {date:'2026-04-02',name:'Holy Thursday',type:'national',coll:'ALL'},
+    {date:'2026-04-03',name:'Good Friday',type:'national',coll:'ALL'},
+    {date:'2026-05-01',name:'Labour Day',type:'national',coll:'ALL'},
+    {date:'2026-08-15',name:'Assumption of Mary',type:'national',coll:'ALL'},
+    {date:'2026-10-12',name:'National Day of Spain',type:'national',coll:'ALL'},
+    {date:'2026-11-01',name:'All Saints Day',type:'national',coll:'ALL'},
+    {date:'2026-12-07',name:'Constitution Day (bridge)',type:'national',coll:'ALL'},
+    {date:'2026-12-08',name:'Immaculate Conception',type:'national',coll:'ALL'},
+    {date:'2026-12-25',name:'Christmas Day',type:'national',coll:'ALL'}
+  ],
+  // ── MOROCCO (RLMR) ── Official 2026 public holidays
+  RLMR:[
+    {date:'2026-01-01',name:'New Year Day',type:'national',coll:'ALL'},
+    {date:'2026-01-11',name:'Independence Manifesto Day',type:'national',coll:'ALL'},
+    {date:'2026-01-14',name:'Amazigh New Year',type:'national',coll:'ALL'},
+    {date:'2026-03-20',name:'Eid Al-Fitr (Eid Sghir)',type:'national',coll:'ALL'},
+    {date:'2026-03-21',name:'Eid Al-Fitr Day 2',type:'national',coll:'ALL'},
+    {date:'2026-05-01',name:'Labour Day',type:'national',coll:'ALL'},
+    {date:'2026-05-27',name:'Eid Al-Adha (Eid Kbir)',type:'national',coll:'ALL'},
+    {date:'2026-05-28',name:'Eid Al-Adha Day 2',type:'national',coll:'ALL'},
+    {date:'2026-06-17',name:'Islamic New Year (Fatih Muharram)',type:'national',coll:'ALL'},
+    {date:'2026-07-30',name:'Feast of the Throne',type:'national',coll:'ALL'},
+    {date:'2026-08-14',name:'Oued Ed-Dahab Day',type:'national',coll:'ALL'},
+    {date:'2026-08-20',name:'Revolution of the King and People',type:'national',coll:'ALL'},
+    {date:'2026-08-21',name:'Youth Day',type:'national',coll:'ALL'},
+    {date:'2026-08-26',name:'Prophet Birthday (Mawlid)',type:'national',coll:'ALL'},
+    {date:'2026-08-27',name:'Prophet Birthday Day 2',type:'national',coll:'ALL'},
+    {date:'2026-10-31',name:'Unity Day',type:'national',coll:'ALL'},
+    {date:'2026-11-06',name:'Green March Day',type:'national',coll:'ALL'},
+    {date:'2026-11-18',name:'Independence Day',type:'national',coll:'ALL'}
+  ],
+  // ── VIETNAM (RLVN) ── Official 2026 public holidays (confirmed by Ministry of Home Affairs)
+  // Tet: Feb 14-18 (official 5 days); extended to Feb 14-22 incl. weekends
+  // Hung Kings: Apr 26 (Sunday) → substitute Apr 27
+  // Reunification + Labour: Apr 30 - May 1
+  // National Day: Sep 1-2 (2 days)
+  // Culture Day: Nov 24 (new official holiday)
+  RLVN:[
+    {date:'2026-01-01',name:'New Year Day',type:'national',coll:'ALL'},
+    {date:'2026-02-14',name:'Tet — Lunar New Year Eve',type:'national',coll:'ALL'},
+    {date:'2026-02-15',name:'Tet — Lunar New Year Day 1',type:'national',coll:'ALL'},
+    {date:'2026-02-16',name:'Tet — Lunar New Year Day 2',type:'national',coll:'ALL'},
+    {date:'2026-02-17',name:'Tet — Lunar New Year Day 3',type:'national',coll:'ALL'},
+    {date:'2026-02-18',name:'Tet — Lunar New Year Day 4',type:'national',coll:'ALL'},
+    {date:'2026-04-27',name:'Hung Kings Commemoration Day (substitute)',type:'national',coll:'ALL'},
+    {date:'2026-04-30',name:'Reunification Day',type:'national',coll:'ALL'},
+    {date:'2026-05-01',name:'International Labour Day',type:'national',coll:'ALL'},
+    {date:'2026-09-01',name:'National Day (extra day)',type:'national',coll:'ALL'},
+    {date:'2026-09-02',name:'National Day',type:'national',coll:'ALL'},
+    {date:'2026-11-24',name:'Vietnam Culture Day',type:'national',coll:'ALL'}
+  ],
+  // ── CHINA (RLCH) ── Official 2026 public holidays (State Council Nov 4 2025)
+  // New Year: Jan 1-3; Spring Festival: Feb 15-23 (9 days);
+  // Qingming: Apr 4-6 (3 days); Labour Day: May 1-5 (5 days);
+  // Dragon Boat: Jun 19-21 (3 days); Mid-Autumn: Sep 24-26 (3 days);
+  // National Day: Oct 1-7 (7 days)
+  RLCH:[
+    {date:'2026-01-01',name:'New Year Day',type:'national',coll:'ALL'},
+    {date:'2026-01-02',name:'New Year Holiday',type:'national',coll:'ALL'},
+    {date:'2026-01-03',name:'New Year Holiday',type:'national',coll:'ALL'},
+    {date:'2026-02-15',name:'Spring Festival Day 1',type:'national',coll:'ALL'},
+    {date:'2026-02-16',name:'Spring Festival Day 2',type:'national',coll:'ALL'},
+    {date:'2026-02-17',name:'Spring Festival Day 3',type:'national',coll:'ALL'},
+    {date:'2026-02-18',name:'Spring Festival Day 4',type:'national',coll:'ALL'},
+    {date:'2026-02-19',name:'Spring Festival Day 5',type:'national',coll:'ALL'},
+    {date:'2026-02-20',name:'Spring Festival Day 6',type:'national',coll:'ALL'},
+    {date:'2026-02-21',name:'Spring Festival Day 7',type:'national',coll:'ALL'},
+    {date:'2026-04-04',name:'Qingming Festival',type:'national',coll:'ALL'},
+    {date:'2026-04-05',name:'Qingming Festival Day 2',type:'national',coll:'ALL'},
+    {date:'2026-04-06',name:'Qingming Festival Day 3',type:'national',coll:'ALL'},
+    {date:'2026-05-01',name:'Labour Day',type:'national',coll:'ALL'},
+    {date:'2026-05-02',name:'Labour Day Day 2',type:'national',coll:'ALL'},
+    {date:'2026-05-03',name:'Labour Day Day 3',type:'national',coll:'ALL'},
+    {date:'2026-05-04',name:'Labour Day Day 4',type:'national',coll:'ALL'},
+    {date:'2026-05-05',name:'Labour Day Day 5',type:'national',coll:'ALL'},
+    {date:'2026-06-19',name:'Dragon Boat Festival',type:'national',coll:'ALL'},
+    {date:'2026-06-20',name:'Dragon Boat Festival Day 2',type:'national',coll:'ALL'},
+    {date:'2026-06-21',name:'Dragon Boat Festival Day 3',type:'national',coll:'ALL'},
+    {date:'2026-09-24',name:'Mid-Autumn Festival',type:'national',coll:'ALL'},
+    {date:'2026-09-25',name:'Mid-Autumn Festival Day 2',type:'national',coll:'ALL'},
+    {date:'2026-09-26',name:'Mid-Autumn Festival Day 3',type:'national',coll:'ALL'},
+    {date:'2026-10-01',name:'National Day Golden Week Day 1',type:'national',coll:'ALL'},
+    {date:'2026-10-02',name:'National Day Golden Week Day 2',type:'national',coll:'ALL'},
+    {date:'2026-10-03',name:'National Day Golden Week Day 3',type:'national',coll:'ALL'},
+    {date:'2026-10-04',name:'National Day Golden Week Day 4',type:'national',coll:'ALL'},
+    {date:'2026-10-05',name:'National Day Golden Week Day 5',type:'national',coll:'ALL'},
+    {date:'2026-10-06',name:'National Day Golden Week Day 6',type:'national',coll:'ALL'},
+    {date:'2026-10-07',name:'National Day Golden Week Day 7',type:'national',coll:'ALL'}
+  ],
+  // ── MEXICO (RLMX) ── Official 2026 public holidays (Art.74 Ley Federal del Trabajo)
+  // Constitution Day → moved to Mon Feb 2
+  // Benito Juarez Birthday → moved to Mon Mar 16
+  // Revolution Day → moved to Mon Nov 16
+  RLMX:[
+    {date:'2026-01-01',name:'New Year Day',type:'national',coll:'ALL'},
+    {date:'2026-02-02',name:'Constitution Day',type:'national',coll:'ALL'},
+    {date:'2026-03-16',name:'Benito Juarez Birthday',type:'national',coll:'ALL'},
+    {date:'2026-04-02',name:'Holy Thursday',type:'national',coll:'ALL'},
+    {date:'2026-04-03',name:'Good Friday',type:'national',coll:'ALL'},
+    {date:'2026-05-01',name:'Labour Day',type:'national',coll:'ALL'},
+    {date:'2026-09-16',name:'Independence Day',type:'national',coll:'ALL'},
+    {date:'2026-11-16',name:'Revolution Day',type:'national',coll:'ALL'},
+    {date:'2026-12-25',name:'Christmas Day',type:'national',coll:'ALL'}
+  ]
+};
+
+// ── STATE ─────────────────────────────────────────────
+let year=new Date().getFullYear(), activePlant='RLCL', activeColl='MOD';
+let holidays={};   // {plant: [{date,name,type,coll,hours?}]}
+let customHours={}; // {plant: {date: hours}} — custom hours overrides
+let isDragging=false, dragType='', mFilterValue='all';
+let modalDate='', modalPlant='', modalDayType='working';
+const tipData={};
+
+// ── SUPABASE ──────────────────────────────────────────
+const SB_URL='https://wzonralmrjbwebncdxxz.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind6b25yYWxtcmpid2VibmNkeHh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3OTI3NjYsImV4cCI6MjA4ODM2ODc2Nn0.S6Z0gBoNsz4PiPfH9uoaNVovg_k5hcpnrr7ykwnw0qU';
+let syncInterval=null;
+let lastHash='';
+
+function sbHeaders(){
+  return{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+}
+
+async function sbRead(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/calendar_data?id=eq.main&select=*`,{headers:sbHeaders()});
+    if(!r.ok) return null;
+    const d=await r.json();
+    return d&&d[0]?d[0]:null;
+  }catch(e){return null;}
+}
+
+async function sbWrite(payload){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/calendar_data`,{
+      method:'POST',
+      headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({id:'main',...payload})
+    });
+    return r.ok||r.status===201||r.status===200;
+  }catch(e){return false;}
+}
+
+function hashObj(o){const s=JSON.stringify(o);let h=0;for(let i=0;i<s.length;i++)h=(Math.imul(31,h)+s.charCodeAt(i))|0;return h.toString(36);}
+
+async function initData(){
+  setSyncStatus('loading');
+  const remote=await sbRead();
+  if(remote){
+    holidays=remote.holidays||JSON.parse(JSON.stringify(DEFAULT_HOLIDAYS));
+    customHours=remote.custom_hours||{};
+    ensureCollFields();
+    lastHash=hashObj({holidays,customHours});
+    setSyncStatus('synced');
+    renderAll();
+    startSync();
+    return;
+  }
+  // First time — seed with defaults
+  holidays=JSON.parse(JSON.stringify(DEFAULT_HOLIDAYS));
+  customHours={};
+  const ok=await sbWrite({holidays,custom_hours:customHours});
+  if(ok){
+    setSyncStatus('synced');
+    toast('✓ Calendar initialised!');
+  } else {
+    setSyncStatus('error');
+    toast('⚠ Could not connect to database. Check your connection.');
+  }
+  ensureCollFields();
+  lastHash=hashObj({holidays,customHours});
+  renderAll();
+}
+
+function ensureCollFields(){
+  Object.keys(holidays).forEach(p=>{(holidays[p]||[]).forEach(h=>{if(!h.coll)h.coll='ALL';});});
+}
+
+async function save(){
+  const ok=await sbWrite({holidays,custom_hours:customHours});
+  if(ok){lastHash=hashObj({holidays,customHours});setSyncStatus('synced');}
+  else setSyncStatus('error');
+}
+
+function startSync(){
+  if(syncInterval)clearInterval(syncInterval);
+  syncInterval=setInterval(async()=>{
+    const remote=await sbRead();
+    if(!remote)return;
+    const rh=remote.holidays||{};
+    const rc=remote.custom_hours||{};
+    const rHash=hashObj({holidays:rh,customHours:rc});
+    if(rHash!==lastHash){
+      holidays=rh;customHours=rc;ensureCollFields();
+      lastHash=rHash;renderAll();
+      setSyncStatus('updated');
+      setTimeout(()=>setSyncStatus('synced'),2500);
+    }
+  },15000);
+}
+
+async function manualRefresh(){
+  setSyncStatus('loading');
+  const remote=await sbRead();
+  if(remote){
+    holidays=remote.holidays||holidays;
+    customHours=remote.custom_hours||customHours;
+    ensureCollFields();lastHash=hashObj({holidays,customHours});
+    renderAll();setSyncStatus('synced');toast('✓ Synced');
+  } else {setSyncStatus('error');toast('⚠ Could not reach database');}
+}
+
+function setSyncStatus(state){
+  const el=document.getElementById('sync-status');
+  if(!el)return;
+  const states={loading:['⏳ Loading...','rgba(255,255,255,.4)'],synced:['✓ Synced','#42EC8B'],updated:['🔄 Updated','#FF9E2C'],error:['⚠ Error','#FF5710'],local:['💾 Local only','#FF9E2C']};
+  const[txt,col]=states[state]||states.local;
+  el.textContent=txt;el.style.color=col;
+}
+
+// ── HELPERS ───────────────────────────────────────────
+const fmtDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const isWE=d=>{const w=d.getDay();return w===0||w===6;};
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+function holsForYear(plant,y){return(holidays[plant]||[]).filter(h=>h.date.startsWith(y+''));}
+function holApplies(h,coll){return h.coll==='ALL'||h.coll===coll;}
+
+function getCustomHours(plant,ds){
+  return customHours[plant]&&customHours[plant][ds]!==undefined?customHours[plant][ds]:null;
+}
+
+function setCustomHours(plant,ds,hrs){
+  if(!customHours[plant])customHours[plant]={};
+  if(hrs===DEFAULT_HOURS||hrs===null){delete customHours[plant][ds];}
+  else{customHours[plant][ds]=hrs;}
+}
+
+function monthStats(plant,m,y,coll){
+  const hols=holsForYear(plant,y).filter(h=>holApplies(h,coll));
+  const nat=new Set(hols.filter(h=>h.type==='national').map(h=>h.date));
+  const vac=new Set(hols.filter(h=>h.type==='custom').map(h=>h.date));
+  let w=0,n=0,v=0,totalHrs=0;
+  const days=new Date(y,m+1,0).getDate();
+  for(let d=1;d<=days;d++){
+    const dt=new Date(y,m,d),ds=fmtDate(dt);
+    if(!isWE(dt)){
+      const ch=getCustomHours(plant,ds);
+      if(nat.has(ds))n++;
+      else if(vac.has(ds))v++;
+      else{w++;totalHrs+=(ch!==null?ch:DEFAULT_HOURS);}
+    }
+  }
+  return{working:w,holidays:n,vacations:v,hours:totalHrs};
+}
+
+function yearWorking(plant,coll){let t=0;for(let m=0;m<12;m++)t+=monthStats(plant,m,year,coll).working;return t;}
+
+function yearWeekends(y){
+  let n=0;
+  for(let m=0;m<12;m++){const d=new Date(y,m+1,0).getDate();for(let i=1;i<=d;i++){const dw=new Date(y,m,i).getDay();if(dw===0||dw===6)n++;}}
+  return n;
+}
+
+function getHolInfo(plant,ds,coll){return(holidays[plant]||[]).find(h=>h.date===ds&&holApplies(h,coll));}
+
+// ── TOAST ─────────────────────────────────────────────
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200);}
+
+// ── PLANT PILLS ───────────────────────────────────────
+function renderPlantPills(){
+  document.getElementById('plant-pills').innerHTML=PLANTS.map(p=>{
+    const total=yearWorking(p.code,activeColl);
+    return `<button class="plant-pill${p.code===activePlant?' active':''}" onclick="setPlant('${p.code}')">
+      <span>${p.flag}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:800">${p.code}</span>
+      <span style="font-size:11px;color:${p.code===activePlant?'rgba(255,255,255,.6)':'var(--text-muted)'}">${p.name}</span>
+      <span class="pdays">${total}d</span>
+    </button>`;
+  }).join('');
+}
+function setPlant(code){activePlant=code;renderAll();}
+function setColl(coll,btn){
+  activeColl=coll;
+  document.querySelectorAll('.coll-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+// ── DRAG & DROP ───────────────────────────────────────
+function onChipDragStart(e,type){
+  dragType=type;
+  e.dataTransfer.setData('text/plain',type);
+  e.dataTransfer.effectAllowed='copy';
+  isDragging=true;
+}
+function onChipDragEnd(){isDragging=false;document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));}
+function onDayDragOver(e,ds){if(!isDragging)return;e.preventDefault();e.dataTransfer.dropEffect='copy';e.currentTarget.classList.add('drag-over');}
+function onDayDragLeave(e){e.currentTarget.classList.remove('drag-over');}
+function onDayDrop(e,ds){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  applyDragType(activePlant,ds,dragType);
+}
+
+async function applyDragType(plant,ds,type){
+  if(!holidays[plant])holidays[plant]=[];
+  const d=new Date(ds+'T12:00:00');
+  if(isWE(d)&&type!=='working'){toast('Weekends cannot be changed this way');return;}
+
+  if(type==='working'){
+    // Remove any day-off entry on this date for this collective
+    holidays[plant]=holidays[plant].filter(h=>!(h.date===ds&&(h.coll===activeColl||h.coll==='ALL')));
+    delete (customHours[plant]||{})[ds];
+
+  } else if(type==='holiday-custom'){
+    // Named holiday (e.g. company closure, bridge day)
+    const label=document.getElementById('hol-custom-label').value.trim()||'Holiday';
+    holidays[plant]=holidays[plant].filter(h=>!(h.date===ds&&(h.coll===activeColl||h.coll==='ALL')));
+    holidays[plant].push({date:ds,name:label,type:'custom',coll:activeColl});
+
+  } else if(type==='official'){
+    // Official Day Off — no name needed
+    holidays[plant]=holidays[plant].filter(h=>!(h.date===ds&&(h.coll===activeColl||h.coll==='ALL')));
+    holidays[plant].push({date:ds,name:'Official Day Off',type:'national',coll:activeColl});
+
+  } else if(type==='hours'){
+    const hrs=parseFloat(document.getElementById('drag-hours').value)||4;
+    const nat=holidays[plant].find(h=>h.date===ds&&h.type==='national'&&(h.coll==='ALL'||h.coll===activeColl));
+    const vac=holidays[plant].find(h=>h.date===ds&&h.type==='custom'&&(h.coll===activeColl||h.coll==='ALL'));
+    if(nat||vac){toast('Cannot set hours on a day off');return;}
+    setCustomHours(plant,ds,hrs);
+  }
+  holidays[plant].sort((a,b)=>a.date.localeCompare(b.date));
+  await save();renderAll();
+}
+
+// ── DAY CLICK → MODAL ────────────────────────────────
+function onDayClick(ds){
+  if(isDragging)return;
+  const d=new Date(ds+'T12:00:00');
+  modalDate=ds;modalPlant=activePlant;
+  const hol=getHolInfo(activePlant,ds,activeColl);
+  const isWeekendDay=isWE(d);
+
+  // Determine current type
+  let currentType='working';
+  if(isWeekendDay)currentType='weekend';
+  else if(hol&&hol.type==='national')currentType='official';
+  else if(hol&&hol.type==='custom')currentType='holiday-custom';
+  const ch=getCustomHours(activePlant,ds);
+
+  // Set modal values
+  const dt=new Date(ds+'T12:00:00');
+  const dayName=dt.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('modal-date-label').textContent=dayName;
+  document.getElementById('modal-title').textContent=`Edit — ${activePlant} · ${activeColl}`;
+  document.getElementById('modal-name').value=hol?hol.name:'';
+  document.getElementById('modal-hours').value=ch!==null?ch:DEFAULT_HOURS;
+
+  selectDayType(currentType,false);
+  document.getElementById('day-modal').classList.remove('hidden');
+}
+
+function selectDayType(type,updateModal=true){
+  modalDayType=type;
+  ['working','holiday-custom','official','weekend'].forEach(t=>{
+    const btn=document.getElementById('btn-type-'+t);
+    if(btn)btn.className='day-type-btn'+(t===type?' selected-'+t:'');
+  });
+  // Disable hours for non-working days
+  const hoursInput=document.getElementById('modal-hours');
+  if(hoursInput)hoursInput.disabled=(type!=='working');
+}
+
+function closeModal(){document.getElementById('day-modal').classList.add('hidden');}
+function closeModalOutside(e){if(e.target===document.getElementById('day-modal'))closeModal();}
+
+async function saveDay(){
+  const ds=modalDate,plant=modalPlant,coll=activeColl;
+  const name=document.getElementById('modal-name').value.trim();
+  const hrs=parseFloat(document.getElementById('modal-hours').value);
+  const type=modalDayType;
+
+  if(!holidays[plant])holidays[plant]=[];
+
+  // Clear existing entries for this date+coll
+  holidays[plant]=holidays[plant].filter(h=>!(h.date===ds&&(h.coll===coll||h.coll==='ALL')));
+  delete (customHours[plant]||{})[ds];
+
+  if(type==='holiday-custom'){
+    holidays[plant].push({date:ds,name:name||'Holiday',type:'custom',coll:coll});
+  } else if(type==='official'){
+    holidays[plant].push({date:ds,name:name||'Official Day Off',type:'national',coll:coll});
+  } else if(type==='working'){
+    if(name)holidays[plant].push({date:ds,name:name,type:'note',coll:coll});
+    if(hrs!==DEFAULT_HOURS&&!isNaN(hrs))setCustomHours(plant,ds,hrs);
+  }
+  // weekend type = just clearing
+
+  holidays[plant].sort((a,b)=>a.date.localeCompare(b.date));
+  await save();renderAll();closeModal();
+  toast('Day saved');
+}
+
+async function clearDay(){
+  const ds=modalDate,plant=modalPlant,coll=activeColl;
+  if(!holidays[plant])holidays[plant]=[];
+  holidays[plant]=holidays[plant].filter(h=>!(h.date===ds&&(h.coll===coll||h.coll==='ALL')));
+  if(customHours[plant])delete customHours[plant][ds];
+  await save();renderAll();closeModal();toast('Day cleared');
+}
+
+// ── CALENDAR ─────────────────────────────────────────
+function renderCalendar(){
+  const grid=document.getElementById('calendar-grid');
+  const hols=holsForYear(activePlant,year);
+  const holMap={};
+  hols.filter(h=>holApplies(h,activeColl)).forEach(h=>{holMap[h.date]=h;});
+  const today=fmtDate(new Date());
+
+  Object.keys(tipData).forEach(k=>delete tipData[k]);
+  Object.entries(holMap).forEach(([ds,h])=>{
+    const ch=getCustomHours(activePlant,ds);
+    tipData[ds]={name:h.name,type:h.type==='national'?'National Holiday':'Vacation',coll:h.coll,hours:ch};
+  });
+  // Also add custom hours tips for working days
+  const chPlant=customHours[activePlant]||{};
+  Object.entries(chPlant).forEach(([ds,hrs])=>{
+    if(!tipData[ds]&&ds.startsWith(year+''))tipData[ds]={name:`${hrs}h working day`,type:'Custom hours',coll:activeColl,hours:hrs};
+  });
+
+  grid.innerHTML=MONTHS.map((mn,m)=>{
+    const stats=monthStats(activePlant,m,year,activeColl);
+    const daysInM=new Date(year,m+1,0).getDate();
+    const firstDay=(new Date(year,m,1).getDay()+6)%7;
+
+    let cells=['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>`<div class="cal-day-label">${d}</div>`).join('');
+    for(let i=0;i<firstDay;i++)cells+='<div class="cal-day empty"></div>';
+
+    for(let d=1;d<=daysInM;d++){
+      const dt=new Date(year,m,d),ds=fmtDate(dt),weekend=isWE(dt),hol=holMap[ds];
+      const ch=getCustomHours(activePlant,ds);
+      let cls='cal-day';
+      if(weekend)cls+=' weekend';
+      else if(hol&&hol.type==='national')cls+=' holiday';
+      else if(hol&&hol.type==='custom')cls+=' vacation';
+      else if(ch!==null&&ch!==undefined)cls+=' custom-hours';
+      if(ds===today)cls+=' today';
+
+      const hoursHint=(!weekend&&ch!==null&&ch!==undefined&&hol?.type!=='national'&&hol?.type!=='custom')?`<div class="day-hours">${ch}h</div>`:'';
+
+      const extra=!weekend?`data-ds="${ds}" ondragover="onDayDragOver(event,'${ds}')" ondragleave="onDayDragLeave(event)" ondrop="onDayDrop(event,'${ds}')" onclick="onDayClick('${ds}')" onmouseenter="showTip(event,'${ds}')" onmouseleave="hideTip()"`:'' ;
+      cells+=`<div class="${cls}" ${extra}>${d}${hoursHint}</div>`;
+    }
+
+    const hrsDisplay=stats.hours>0?`<span class="stat-badge hours">${stats.hours}h</span>`:'';
+    return `<div class="month-card">
+      <div class="month-header">
+        <div class="month-name">${mn}</div>
+        <div class="month-stats">
+          <span class="stat-badge working">${stats.working}W</span>
+          ${stats.holidays>0?`<span class="stat-badge holiday">${stats.holidays}H</span>`:''}
+          ${stats.vacations>0?`<span class="stat-badge vacation">${stats.vacations}V</span>`:''}
+          ${hrsDisplay}
+        </div>
+      </div>
+      <div class="cal-grid">${cells}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── TABLE ─────────────────────────────────────────────
+function renderTable(){
+  const tbody=document.getElementById('table-body');
+  let tW=0,tH=0,tV=0,tHrs=0,tWE=0;
+  tbody.innerHTML=MONTHS.map((mn,m)=>{
+    const daysInM=new Date(year,m+1,0).getDate();
+    const s=monthStats(activePlant,m,year,activeColl);
+    const we=[...Array(daysInM)].filter((_,i)=>{const dw=new Date(year,m,i+1).getDay();return dw===0||dw===6;}).length;
+    tW+=s.working;tH+=s.holidays;tV+=s.vacations;tHrs+=s.hours;tWE+=we;
+    return `<tr><td class="month-cell">${mn}</td><td class="num muted">${daysInM}</td><td><span class="num working">${s.working}</span></td><td><span class="num hol">${s.holidays||'—'}</span></td><td><span class="num vac">${s.vacations||'—'}</span></td><td><span class="num hrs">${s.hours}h</span></td><td><span class="num muted">${we}</span></td></tr>`;
+  }).join('');
+  tbody.innerHTML+=`<tr class="total-row"><td class="month-cell">TOTAL ${year} · ${activeColl}</td><td class="num">365</td><td><span class="num working">${tW}</span></td><td><span class="num">${tH}</span></td><td><span class="num">${tV}</span></td><td><span class="num" style="color:var(--orange2)">${tHrs}h</span></td><td><span class="num">${tWE}</span></td></tr>`;
+}
+
+// ── COMPARISON ────────────────────────────────────────
+function renderComparison(){
+  document.getElementById('comparison-grid').innerHTML=PLANTS.map(p=>{
+    let tW=0,tH=0,tV=0,tHrs=0;
+    for(let m=0;m<12;m++){const s=monthStats(p.code,m,year,activeColl);tW+=s.working;tH+=s.holidays;tV+=s.vacations;tHrs+=s.hours;}
+    const collCls=activeColl==='MOD'?'mod':activeColl==='MOI'?'moi':'staff';
+    return `<div class="country-card" data-country="${p.code}">
+      <div class="cflag">${p.flag}</div>
+      <div class="ccode">${p.code}</div>
+      <div class="cname">${p.name}</div>
+      <div class="coll-badge ${collCls}">${activeColl}</div>
+      <div class="big-num">${tW}</div>
+      <div class="big-label">working days</div>
+      <hr style="border:none;border-top:1px solid var(--ult-grey);margin:11px 0">
+      <div class="sub-stat"><span>National holidays</span><span>${tH}</span></div>
+      <div class="sub-stat"><span>Vacation days</span><span>${tV}</span></div>
+      <div class="sub-stat"><span>Total hours</span><span>${tHrs}h</span></div>
+      <div class="sub-stat"><span>Days off (total)</span><span>${tH+tV+yearWeekends(year)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── MANAGE ────────────────────────────────────────────
+function setMFilter(val,btn){
+  mFilterValue=val;
+  document.querySelectorAll('.fpill').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderHolidaysList();
+}
+
+function renderHolidaysList(){
+  document.getElementById('filter-year').textContent=year;
+  let all=PLANTS.flatMap(p=>(holidays[p.code]||[]).filter(h=>h.date.startsWith(year+'')).map(h=>({...h,plant:p.code,flag:p.flag}))).sort((a,b)=>a.date.localeCompare(b.date));
+  if(mFilterValue==='custom')all=all.filter(h=>h.type==='custom');
+  else if(mFilterValue!=='all')all=all.filter(h=>h.plant===mFilterValue);
+  const list=document.getElementById('holidays-list');
+  if(!all.length){list.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:10px 0">No entries found.</div>';return;}
+  const collCls={MOD:'mod-badge',MOI:'moi-badge',Staff:'staff-badge',ALL:'all-badge'};
+  list.innerHTML=all.map(h=>`<div class="hitem" data-country="${h.plant}">
+    <span class="hd">${h.date}</span>
+    <span>${h.flag}</span>
+    <span class="hcode">${h.plant}</span>
+    <span class="hn">${escHtml(h.name)}</span>
+    <span class="hcoll ${collCls[h.coll]||'all-badge'}">${h.coll}</span>
+    <span class="ht${h.type==='custom'?' vac':''}">${h.type==='national'?'Holiday':'Vacation'}</span>
+    <button class="xbtn" onclick="deleteHol('${h.plant}','${h.date}','${h.coll}','${h.type}')">×</button>
+  </div>`).join('');
+}
+
+async function addHoliday(){
+  const p=document.getElementById('edit-plant').value,dt=document.getElementById('edit-date').value,
+        nm=document.getElementById('edit-name').value.trim(),tp=document.getElementById('edit-type').value,
+        co=document.getElementById('edit-coll').value;
+  if(!dt||!nm){toast('Fill in date and description');return;}
+  if(!holidays[p])holidays[p]=[];
+  const dup=holidays[p].find(h=>h.date===dt&&(h.coll===co||h.coll==='ALL'||co==='ALL'));
+  if(dup){if(!confirm('A day already exists for this date/collective. Replace?'))return;holidays[p]=holidays[p].filter(h=>!(h.date===dt&&(h.coll===co||h.coll==='ALL'||co==='ALL')));}
+  holidays[p].push({date:dt,name:nm,type:tp,coll:co});
+  holidays[p].sort((a,b)=>a.date.localeCompare(b.date));
+  await save();renderHolidaysList();renderAll();document.getElementById('edit-name').value='';toast('Added: '+nm);
+}
+
+async function deleteHol(plant,dt,coll,type){
+  if(!holidays[plant])return;
+  holidays[plant]=holidays[plant].filter(h=>!(h.date===dt&&h.coll===coll&&h.type===type));
+  await save();renderHolidaysList();renderAll();toast('Entry removed');
+}
+
+// ── TOOLTIP ───────────────────────────────────────────
+function showTip(e,ds){
+  const info=tipData[ds];if(!info)return;
+  const tip=document.getElementById('tooltip');
+  const collLabel=info.coll==='ALL'?'All collectives':info.coll;
+  const hrsLine=info.hours!==null&&info.hours!==undefined?`<div class="tcoll">${info.hours}h</div>`:'';
+  tip.innerHTML=`${escHtml(info.name)}<div class="ttype">${info.type}</div><div class="tcoll">${collLabel}</div>${hrsLine}`;
+  tip.style.display='block';
+}
+function hideTip(){document.getElementById('tooltip').style.display='none';}
+document.addEventListener('mousemove',e=>{
+  const tip=document.getElementById('tooltip');
+  if(tip.style.display==='block'){tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-52)+'px';}
+});
+
+// ── TABS ──────────────────────────────────────────────
+let currentTab='calendar';
+function switchTab(tab,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+tab).classList.add('active');
+  currentTab=tab;renderCurrentTab();
+}
+function renderCurrentTab(){
+  if(currentTab==='calendar')renderCalendar();
+  else if(currentTab==='table')renderTable();
+  else if(currentTab==='comparison')renderComparison();
+  else if(currentTab==='edit')renderHolidaysList();
+}
+function renderAll(){renderPlantPills();renderCurrentTab();}
+function changeYear(d){year+=d;document.getElementById('year-display').textContent=year;renderAll();}
+
+// ── EXPORT PDF ────────────────────────────────────────
+function exportPDF(){
+  const plant=PLANTS.find(p=>p.code===activePlant);
+  let tW=0,tH=0,tV=0,tHrs=0;
+  const rows=MONTHS.map((mn,m)=>{
+    const daysInM=new Date(year,m+1,0).getDate();
+    const s=monthStats(activePlant,m,year,activeColl);
+    const we=[...Array(daysInM)].filter((_,i)=>{const dw=new Date(year,m,i+1).getDay();return dw===0||dw===6;}).length;
+    tW+=s.working;tH+=s.holidays;tV+=s.vacations;tHrs+=s.hours;
+    return `<tr><td>${mn}</td><td>${daysInM}</td><td><b style="color:#002994">${s.working}</b></td><td style="color:#FF5710">${s.holidays||'—'}</td><td style="color:#007A3D">${s.vacations||'—'}</td><td style="color:#92400E">${s.hours}h</td><td style="color:#999">${we}</td></tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${plant.code} ${activeColl} ${year}</title>
+  <style>body{font-family:Arial,sans-serif;padding:32px;color:#1C1C1C;font-size:13px}h1{font-size:18px;margin-bottom:3px}p{font-size:11px;color:#999;margin-bottom:20px}table{width:100%;border-collapse:collapse}th{background:#1C1C1C;color:rgba(255,255,255,.7);padding:9px 14px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase}th:not(:first-child){text-align:center}td{padding:8px 14px;border-bottom:1px solid #E0DBD7}td:not(:first-child){text-align:center}.tot{background:#F5F1ED;font-weight:700;border-top:2px solid #D5D0CB}</style>
+  </head><body>
+  <h1>${plant.flag} ${plant.code} — ${plant.name} · ${activeColl} · ${year}</h1>
+  <p>Generated ${new Date().toLocaleDateString('en-GB')}</p>
+  <table><thead><tr><th>Month</th><th>Days</th><th>Working</th><th>Holidays</th><th>Vacation</th><th>Hours</th><th>Weekends</th></tr></thead>
+  <tbody>${rows}<tr class="tot"><td>TOTAL ${year}</td><td>365</td><td><b style="color:#002994">${tW}</b></td><td>${tH}</td><td>${tV}</td><td>${tHrs}h</td><td>${yearWeekends(year)}</td></tr></tbody></table>
+  </body></html>`;
+  const w=window.open('','_blank','width=860,height=680');
+  w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),400);
+  toast('Opening PDF print dialog...');
+}
+
+// ── EXPORT EXCEL ──────────────────────────────────────
+function exportExcel(){
+  const wb=XLSX.utils.book_new();
+  const sumRows=[['Plant','Country','Collective','Working Days','Holidays','Vacation Days','Total Hours']];
+  PLANTS.forEach(p=>{COLLECTIVES.forEach(co=>{
+    let tW=0,tH=0,tV=0,tHrs=0;
+    for(let m=0;m<12;m++){const s=monthStats(p.code,m,year,co);tW+=s.working;tH+=s.holidays;tV+=s.vacations;tHrs+=s.hours;}
+    sumRows.push([p.code,p.name,co,tW,tH,tV,tHrs]);
+  });});
+  const wsSummary=XLSX.utils.aoa_to_sheet(sumRows);
+  wsSummary['!cols']=[{wch:8},{wch:12},{wch:10},{wch:13},{wch:10},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,wsSummary,'Summary');
+
+  PLANTS.forEach(p=>{COLLECTIVES.forEach(co=>{
+    const rows=[['Month','Total Days','Working','Holidays','Vacation','Hours','Weekends']];
+    let tW=0,tH=0,tV=0,tHrs=0,tWE=0;
+    MONTHS.forEach((mn,m)=>{
+      const daysInM=new Date(year,m+1,0).getDate();
+      const s=monthStats(p.code,m,year,co);
+      const we=[...Array(daysInM)].filter((_,i)=>{const dw=new Date(year,m,i+1).getDay();return dw===0||dw===6;}).length;
+      tW+=s.working;tH+=s.holidays;tV+=s.vacations;tHrs+=s.hours;tWE+=we;
+      rows.push([mn,daysInM,s.working,s.holidays||0,s.vacations||0,s.hours,we]);
+    });
+    rows.push(['TOTAL '+year,365,tW,tH,tV,tHrs,tWE]);
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:13},{wch:11},{wch:9},{wch:9},{wch:9},{wch:9},{wch:9}];
+    XLSX.utils.book_append_sheet(wb,ws,(p.code+' '+co).slice(0,31));
+  });});
+
+  const offRows=[['Plant','Date','Name','Type','Collective','Hours']];
+  PLANTS.forEach(p=>{(holidays[p.code]||[]).filter(h=>h.date.startsWith(year+'')).forEach(h=>{
+    const ch=getCustomHours(p.code,h.date);
+    offRows.push([p.code,h.date,h.name,h.type==='national'?'Holiday':'Vacation',h.coll,ch!==null?ch:'']);
+  });});
+  const wsOff=XLSX.utils.aoa_to_sheet(offRows);
+  wsOff['!cols']=[{wch:8},{wch:12},{wch:36},{wch:10},{wch:10},{wch:6}];
+  XLSX.utils.book_append_sheet(wb,wsOff,'All Days Off');
+
+  XLSX.writeFile(wb,`RL_Production_Calendars_${year}.xlsx`);
+  toast('Excel downloaded!');
+}
+
+// ── INIT ──────────────────────────────────────────────
+document.getElementById('calendar-grid').innerHTML='<div style="grid-column:1/-1;padding:48px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Loading...</div>';
+initData();
+</script>
+</body>
+</html>
